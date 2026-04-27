@@ -39,7 +39,11 @@ export function setupLaserheadUI() {
     // Load saved laser setup
     const savedSetup = loadLaserSetup();
     if (savedSetup && Array.isArray(savedSetup)) {
-        selectedLaserheads = savedSetup;
+        // Backward compatible default: saved laserheads without this flag are enabled.
+        selectedLaserheads = savedSetup.map(laserhead => ({
+            ...laserhead,
+            isEnabled: laserhead.isEnabled !== false
+        }));
         renderSelectedLaserheads();
     }
 }
@@ -226,10 +230,11 @@ function selectLaserhead(id) {
     
     // If currentLaserheadIndex is set (meaning we're replacing), replace at that index
     if (typeof currentLaserheadIndex === 'number' && currentLaserheadIndex >= 0) {
-        selectedLaserheads[currentLaserheadIndex] = { ...laserhead, modules: initializedModules };
+        const isEnabled = selectedLaserheads[currentLaserheadIndex]?.isEnabled !== false;
+        selectedLaserheads[currentLaserheadIndex] = { ...laserhead, modules: initializedModules, isEnabled };
     } else {
         // Otherwise add to the end
-        selectedLaserheads.push({ ...laserhead, modules: initializedModules });
+        selectedLaserheads.push({ ...laserhead, modules: initializedModules, isEnabled: true });
     }
     
     renderSelectedLaserheads();
@@ -298,6 +303,20 @@ function addGroupInputHandlers(container) {
                 selectedLaserheads[idx].group = groups;
             }
             saveLaserSetup(selectedLaserheads);
+            updateBreakabilityChart();
+        });
+    });
+}
+
+function addLaserheadEnabledHandlers(container) {
+    container.querySelectorAll('.laserhead-enabled-input').forEach(input => {
+        input.addEventListener('change', function() {
+            const idx = parseInt(this.dataset.laserIdx, 10);
+            if (isNaN(idx) || !selectedLaserheads[idx]) return;
+
+            selectedLaserheads[idx].isEnabled = this.checked;
+            saveLaserSetup(selectedLaserheads);
+            renderSelectedLaserheads();
             updateBreakabilityChart();
         });
     });
@@ -438,6 +457,9 @@ export function renderSelectedLaserheads() {
     
     // Add event handlers for group input fields
     addGroupInputHandlers(container);
+
+    // Add event handlers for laserhead enabled/disabled state
+    addLaserheadEnabledHandlers(container);
     
     // Equalize card heights after rendering
     equalizeSelectedCardHeights();

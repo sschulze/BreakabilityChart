@@ -664,6 +664,29 @@ button:hover {
   box-shadow: 0 0 0 2px var(--color-accent-focus);
 }
 
+.selected-laserhead .laserhead-enabled-field {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.selected-laserhead .laserhead-enabled-field label {
+  font-size: 11px;
+  color: var(--color-text-secondary, #888);
+  font-weight: bold;
+}
+
+.selected-laserhead .laserhead-enabled-input {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+.selected-laserhead.laserhead-disabled {
+  opacity: 0.65;
+  border-style: dashed;
+}
+
 .selected-laserhead .name {
   font-weight: bold;
   flex-grow: 1;

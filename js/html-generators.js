@@ -188,13 +188,17 @@ export function generateModuleAttributeRows(module, visibleAttributes) {
  */
 export function generateSelectedLaserheadHTML(laserhead, idx, attributeRowsHTML, moduleSectionHTML) {
     return `
-        <div class="selected-laserhead">
+        <div class="selected-laserhead ${laserhead.isEnabled === false ? 'laserhead-disabled' : ''}">
             <div class="laserhead-info">
                 <div class="size">S${laserhead.size || 1}</div>
                 <div class="group-field">
                     <label>G</label>
                     <input type="text" class="group-input" data-laser-idx="${idx}" 
                            value="${Array.isArray(laserhead.group) ? laserhead.group.join(',') : (laserhead.group || '')}" placeholder="-">
+                </div>
+                <div class="laserhead-enabled-field">
+                    <label for="laserEnabled_${idx}">On</label>
+                    <input type="checkbox" id="laserEnabled_${idx}" class="laserhead-enabled-input" data-laser-idx="${idx}" ${laserhead.isEnabled === false ? '' : 'checked'}>
                 </div>
                 <div class="name" contenteditable="true" 
                      data-original-name="${laserhead.customName || cleanLaserName(laserhead.name)}">

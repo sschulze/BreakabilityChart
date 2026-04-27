@@ -8,6 +8,10 @@ let marker = null;
 let operatorSeatMode = loadOperatorSeatMode() ?? false;
 let markerPosition = null; // Store last marker position for animation
 
+function isLaserEnabled(laserhead) {
+    return laserhead?.isEnabled !== false;
+}
+
 // Helper function to get CSS variable colors
 function getCSSColor(variableName) {
     // Get from body to account for dark-mode class
@@ -304,6 +308,7 @@ export function updateBreakabilityChart() {
     // Build a set of valid group IDs based on current laserheads
     const validGroups = new Set();
     selectedLaserheads.forEach((laserhead, i) => {
+        if (!isLaserEnabled(laserhead)) return;
         const laserLabel = laserhead.customName || cleanLaserName(laserhead.name);
         const groupId = `laser_${i}_${laserLabel}`;
         validGroups.add(groupId);
@@ -312,6 +317,7 @@ export function updateBreakabilityChart() {
     // Build valid laser group IDs
     const laserGroupNumbers = new Map(); // groupNumber -> [laserIndex, ...]
     selectedLaserheads.forEach((laserhead, i) => {
+        if (!isLaserEnabled(laserhead)) return;
         if (laserhead.group) {
             // Support both legacy single number and new array of numbers
             const groups = Array.isArray(laserhead.group) ? laserhead.group : [laserhead.group];
@@ -342,9 +348,15 @@ export function updateBreakabilityChart() {
     // Arrays to store individual laser data for totals
     let powers = [];
     let resistanceModifiers = [];
+    const enabledLaserCount = selectedLaserheads.filter(isLaserEnabled).length;
 
     for (let i = 0; i < selectedLaserheads.length; i++) {
         const laserhead = selectedLaserheads[i];
+        if (!isLaserEnabled(laserhead)) {
+            powers.push(null);
+            resistanceModifiers.push(null);
+            continue;
+        }
         
         // Get active modules (filter out null placeholders first)
         const activeModules = laserhead.modules?.filter(m => m && m.isActive !== false) || [];
@@ -370,12 +382,15 @@ export function updateBreakabilityChart() {
         const groupLabel = `Group ${groupNum}`;
         
         // Compute combined params for this group
-        const groupParams = indices.map(i => ({
-            maxPower: powers[i].max,
-            minPower: powers[i].min,
-            resistanceModifier: resistanceModifiers[i],
-            isVisible: true
-        }));
+        const groupParams = indices
+            .filter(i => isLaserEnabled(selectedLaserheads[i]) && powers[i] !== null && resistanceModifiers[i] !== null)
+            .map(i => ({
+                maxPower: powers[i].max,
+                minPower: powers[i].min,
+                resistanceModifier: resistanceModifiers[i],
+                isVisible: true
+            }));
+        if (groupParams.length < 2) continue;
         const { maxData, minData } = computeCombinedCurve(groupParams);
         
         const groupColor = getGroupColor(groupNum);
@@ -417,11 +432,12 @@ export function updateBreakabilityChart() {
     }
     
     // Handle total curves - update if exists, remove if only one laser left
-    if (selectedLaserheads.length > 1) {
+    if (enabledLaserCount > 1) {
         // Helper to get visibility status for all lasers
         const getVisibleIndices = () => {
             return powers.map((_, i) => {
                 if (i >= selectedLaserheads.length) return false;
+                if (!powers[i]) return false;
                 const laserhead = selectedLaserheads[i];
                 const laserLabel = laserhead.customName || cleanLaserName(laserhead.name);
                 const groupId = `laser_${i}_${laserLabel}`;
@@ -467,10 +483,10 @@ export function updateBreakabilityChart() {
             // Get visibility status and calculate combined curve
             const visibleIndices = getVisibleIndices();
             const laserParams = powers.map((p, i) => ({
-                maxPower: p.max,
-                minPower: p.min,
-                resistanceModifier: resistanceModifiers[i],
-                isVisible: visibleIndices[i]
+                maxPower: p ? p.max : 0,
+                minPower: p ? p.min : 0,
+                resistanceModifier: resistanceModifiers[i] ?? 1,
+                isVisible: !!visibleIndices[i]
             }));
             const { maxData: newTotalMaxData, minData: newTotalMinData } = computeCombinedCurve(laserParams);
             
@@ -599,6 +615,7 @@ export function updateBreakabilityChart() {
             // Build visibility array accounting for pending visibility change
             const visibleForTotal = powers.map((_, i) => {
                 if (i >= selectedLaserheads.length) return false;
+                if (!powers[i]) return false;
                 
                 const laserhead = selectedLaserheads[i];
                 const laserLabel = laserhead.customName || cleanLaserName(laserhead.name);
@@ -616,10 +633,10 @@ export function updateBreakabilityChart() {
             });
             
             const laserParamsForTotal = powers.map((p, i) => ({
-                maxPower: p.max,
-                minPower: p.min,
-                resistanceModifier: resistanceModifiers[i],
-                isVisible: visibleForTotal[i]
+                maxPower: p ? p.max : 0,
+                minPower: p ? p.min : 0,
+                resistanceModifier: resistanceModifiers[i] ?? 1,
+                isVisible: !!visibleForTotal[i]
             }));
             let { maxData: newTotalMaxData, minData: newTotalMinData } = computeCombinedCurve(laserParamsForTotal);
             
@@ -658,8 +675,8 @@ export function updateBreakabilityChart() {
                 }, 800);
             }
         };
-    } else if (selectedLaserheads.length === 1) {
-        // Remove total curves if only one laser left
+    } else {
+        // Remove total curves when less than two enabled laserheads remain
         chart.data.datasets = chart.data.datasets.filter(ds => ds.group !== 'total');
     }
     
@@ -730,6 +747,7 @@ function calculateRequiredPowerDisplay(mass, resistance) {
     // Build list of lasers with their parameters, excluding hidden (toggled-off) laserheads
     const laserParameters = selectedLaserheads
         .map((laserhead, i) => {
+            if (!isLaserEnabled(laserhead)) return null;
             const laserLabel = laserhead.customName || cleanLaserName(laserhead.name);
             const groupId = `laser_${i}_${laserLabel}`;
             const laserDataset = chart.data.datasets.find(ds => ds.group === groupId && !ds.label.endsWith('_min'));
@@ -782,19 +800,11 @@ function addLaserDataset(laserhead, modules, index) {
     const finalMinData = computeCurve(minP, r_mod);
     const finalMaxData = computeCurve(maxP, r_mod);
     
-    // Find existing datasets by position (index * 2 for min, index * 2 + 1 for max)
-    // Skip marker and total datasets
-    const laserDatasets = chart.data.datasets.filter(ds => 
-        ds.label !== "Marker" && ds.group !== 'total'
-    );
-    const minDatasetIndex = laserDatasets.findIndex((ds, idx) => idx === index * 2);
-    const maxDatasetIndex = laserDatasets.findIndex((ds, idx) => idx === index * 2 + 1);
+    // Update existing datasets by group id (robust when laser indices are sparse)
+    const minDataset = chart.data.datasets.find(ds => ds.group === groupId && ds.label.endsWith('_min'));
+    const maxDataset = chart.data.datasets.find(ds => ds.group === groupId && !ds.label.endsWith('_min'));
     
-    // Get actual indices in the full datasets array
-    let minDataset = minDatasetIndex >= 0 ? laserDatasets[minDatasetIndex] : null;
-    let maxDataset = maxDatasetIndex >= 0 ? laserDatasets[maxDatasetIndex] : null;
-    
-    // If datasets exist at these positions, update them
+    // If datasets exist for this group, update them
     if (minDataset && maxDataset) {
         // Update labels (for rename)
         minDataset.label = laserLabel + '_min';
