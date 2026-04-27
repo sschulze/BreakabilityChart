@@ -102,13 +102,19 @@ export function generateAttributeRow(attrName, attr) {
  */
 export function generateFilledModuleSlotHTML(module, moduleAttrs, laserheadIdx, slotIdx, isActive) {
     const hasVisibleAttrs = moduleAttrs !== '';
+    const isModuleOn = module.isActive !== false;
     
     return `
         <div class="module-slot filled">
             <div class="module-header">
                 <div class="module-slot-info">
-                    <span class="module-name ${module.isActive === false ? 'inactive' : ''} ${isActive ? 'clickable' : ''}" 
-                          ${isActive ? `onclick="toggleModule(${laserheadIdx}, ${slotIdx})"` : ''}>
+                    ${isActive ? `
+                    <div class="module-enabled-field">
+                        <label for="moduleEnabled_${laserheadIdx}_${slotIdx}">On</label>
+                        <input type="checkbox" id="moduleEnabled_${laserheadIdx}_${slotIdx}" class="module-enabled-input" data-laser-idx="${laserheadIdx}" data-module-idx="${slotIdx}" ${isModuleOn ? 'checked' : ''}>
+                    </div>
+                    ` : ''}
+                    <span class="module-name ${isActive && !isModuleOn ? 'inactive' : ''}">
                         ${module.name || ''}
                     </span>
                 </div>
@@ -118,7 +124,7 @@ export function generateFilledModuleSlotHTML(module, moduleAttrs, laserheadIdx, 
                 </div>
             </div>
             ${hasVisibleAttrs ? `
-                <table class="module-table ${module.isActive === false ? 'inactive' : ''}">
+                <table class="module-table ${isActive && !isModuleOn ? 'inactive' : ''}">
                     <tbody>${moduleAttrs}</tbody>
                 </table>
             ` : `

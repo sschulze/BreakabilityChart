@@ -6,7 +6,7 @@ import {
     getUnit, 
     cleanLaserName 
 } from './data-manager.js';
-import { updateBreakabilityChart } from './chart-manager.js';
+import { updateBreakabilityChart, updateMarker } from './chart-manager.js';
 import { isActiveModule } from './module-manager.js';
 import { calculateAttributeValue, createSyntheticAttribute } from './calculations.js';
 import { saveLaserSetup, loadLaserSetup, saveActiveSizes, loadActiveSizes } from './storage-manager.js';
@@ -261,6 +261,9 @@ export function toggleModule(laserheadIdx, moduleIdx) {
     if (isActiveModule) {
         // Toggle the active state
         module.isActive = module.isActive === false ? true : false;
+        saveLaserSetup(selectedLaserheads);
+        updateBreakabilityChart();
+        updateMarker();
         // Re-render to update display
         renderSelectedLaserheads();
     }
@@ -304,6 +307,7 @@ function addGroupInputHandlers(container) {
             }
             saveLaserSetup(selectedLaserheads);
             updateBreakabilityChart();
+                updateMarker();
         });
     });
 }
@@ -318,6 +322,35 @@ function addLaserheadEnabledHandlers(container) {
             saveLaserSetup(selectedLaserheads);
             renderSelectedLaserheads();
             updateBreakabilityChart();
+            updateMarker();
+        });
+    });
+}
+
+function addModuleEnabledHandlers(container) {
+    container.querySelectorAll('.module-enabled-input').forEach(input => {
+        input.addEventListener('change', function() {
+            const laserIdx = parseInt(this.dataset.laserIdx, 10);
+            const moduleIdx = parseInt(this.dataset.moduleIdx, 10);
+            if (isNaN(laserIdx) || isNaN(moduleIdx)) return;
+
+            const laserhead = selectedLaserheads[laserIdx];
+            if (!laserhead?.modules) return;
+
+            const module = laserhead.modules[moduleIdx];
+            if (!module) return;
+
+            // Passive modules are always on and must not be toggleable.
+            if (!isActiveModule(module)) {
+                module.isActive = true;
+                return;
+            }
+
+            module.isActive = this.checked;
+            saveLaserSetup(selectedLaserheads);
+            updateBreakabilityChart();
+            updateMarker();
+            renderSelectedLaserheads();
         });
     });
 }
@@ -460,6 +493,9 @@ export function renderSelectedLaserheads() {
 
     // Add event handlers for laserhead enabled/disabled state
     addLaserheadEnabledHandlers(container);
+
+    // Add event handlers for active module on/off state
+    addModuleEnabledHandlers(container);
     
     // Equalize card heights after rendering
     equalizeSelectedCardHeights();

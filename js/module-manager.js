@@ -269,6 +269,8 @@ function selectModule(id) {
     if (typeof currentLaserheadIndex === 'number' && typeof currentModuleSlot === 'number') {
         const laserhead = selectedLaserheads[currentLaserheadIndex];
         if (laserhead) {
+            const previousModule = laserhead.modules?.[currentModuleSlot] || null;
+
             // Ensure modules array exists
             if (!Array.isArray(laserhead.modules)) {
                 laserhead.modules = [];
@@ -278,8 +280,18 @@ function selectModule(id) {
             while (laserhead.modules.length <= currentModuleSlot) {
                 laserhead.modules.push(null);
             }
-            
-            laserhead.modules[currentModuleSlot] = { ...module };
+
+            const nextModule = { ...module };
+
+            // Keep on/off state when replacing one active module with another.
+            if (isActiveModule(nextModule) && previousModule && isActiveModule(previousModule)) {
+                nextModule.isActive = previousModule.isActive !== false;
+            } else if (isActiveModule(nextModule)) {
+                // New active modules default to on.
+                nextModule.isActive = true;
+            }
+
+            laserhead.modules[currentModuleSlot] = nextModule;
             renderSelectedLaserheads();
             saveLaserSetup(selectedLaserheads);
         }

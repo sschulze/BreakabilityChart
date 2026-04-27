@@ -814,6 +814,24 @@ button:hover {
   color: var(--color-text-primary);
 }
 
+.selected-laserhead .module-slot .module-enabled-field {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.selected-laserhead .module-slot .module-enabled-field label {
+  font-size: 11px;
+  color: var(--color-text-secondary, #888);
+  font-weight: bold;
+}
+
+.selected-laserhead .module-slot .module-enabled-input {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
 .selected-laserhead .module-slot .module-name.clickable {
   cursor: pointer;
 }
